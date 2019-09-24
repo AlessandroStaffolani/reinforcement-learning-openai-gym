@@ -3,15 +3,18 @@ import sys
 from collections import defaultdict
 
 from utils.plotting import EpisodeStats
+from algorithms.discretization_functions import default_discretization
 
 
 class QLearning:
 
     def __init__(self,
                  env,
+                 buckets=(1, ),
                  discount_factor=1.0,
                  alpha=0.5,
                  epsilon=0.1,
+                 discretize_fn=default_discretization,
                  env_render=False,
                  env_wrapper=False
                  ):
@@ -20,15 +23,19 @@ class QLearning:
         while following an epsilon-greedy policy
 
         :param env: OpenAI environment.
+        :param buckets: Tuple containing the bins for discretize the continuous features. Default None.
         :param discount_factor: Gamma discount factor. Float between [0, 1].
         :param alpha: Temporal-Difference (TD) learning rate. Float between (0, 1].
+        :param discretize_fn: Function used to discretize the state when necessary. Default no trasformation done.
         :param epsilon: Chance to sample a random action. Float between (0, 1].
         :param env_render: Wheter render the env or not. Boolean default False.
         """
         self.env = env
+        self.buckets = buckets
         self.discount_factor = discount_factor
         self.alpha = alpha
         self.epsilon = epsilon
+        self.discretize_fn = discretize_fn
         self.env_render = env_render
         self.env_wrapper = env_wrapper
         # TODO check the value of the parameters
@@ -37,7 +44,16 @@ class QLearning:
         """
         Init the action-value function Q
         """
-        return defaultdict(lambda: np.zeros(self.env.action_space.n))
+        return np.zeros(self.buckets + (self.env.action_space.n, ))
+
+    def process_state(self, state):
+        """
+        Method to process the state when necessary using the discretize_fn provided to the agent.
+
+        :param state: State to be processed.
+        :return: The state processed.
+        """
+        return self.discretize_fn(state, self.env, self.buckets)
 
     def learn(self, num_episodes):
         """
@@ -67,7 +83,7 @@ class QLearning:
                 sys.stdout.flush()
 
             # Get the first random state
-            state = self.env.reset()
+            state = self.process_state(self.env.reset())
 
             # Time step t
             t = 0
@@ -82,6 +98,7 @@ class QLearning:
                 action_probs = policy(state)
                 action = np.random.choice(np.arange(len(action_probs)), p=action_probs)
                 next_state, reward, done, _ = self.env.step(action)
+                next_state = self.process_state(next_state)
 
                 # Update statistics
                 stats.episode_rewards[i_episode] += reward

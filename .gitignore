@@ -137,3 +137,7 @@ venv.bak/
 
 # logs folder
 logs/*
+
+# test file
+test.ipynb
+/test.py

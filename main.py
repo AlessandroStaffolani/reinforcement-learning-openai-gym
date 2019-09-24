@@ -3,6 +3,7 @@ import gym
 
 from algorithms.q_learning import QLearning
 from utils.gym_wrapper import wrap_env
+from algorithms.discretization_functions import discretize_cartpole_v0
 
 
 def main():
@@ -15,15 +16,16 @@ def main():
 
     env = wrap_env(env, args.env_id)
 
-    agent = QLearning(env, env_render=True)
+    buckets = (1, 1, 6, 12,)
 
-    Q, stats = agent.learn(10)
+    agent = QLearning(env, buckets=buckets, discretize_fn=discretize_cartpole_v0)
+
+    Q, stats = agent.learn(1000)
 
     print(Q)
     print(stats)
 
     env.close()
-
 
 if __name__ == "__main__":
     main()
