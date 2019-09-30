@@ -20,7 +20,7 @@ def main():
 
     agent = QLearning(env, buckets=buckets, discretize_fn=discretize_cartpole_v0)
 
-    Q, stats = agent.learn(1000)
+    Q, stats = agent.learn(500)
 
     print(Q)
     print(stats)
