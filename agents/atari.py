@@ -1,9 +1,69 @@
+import math
+import random
 import numpy as np
 
 import torch
 from torch import nn
 
 from agents.experience_replay import AtariExperience
+from preprocessing.atari import preprocess_breakout
+
+
+class BreakoutAgent:
+
+    def __init__(self,
+                 env,
+                 state_shape=(1, 80, 80),
+                 render_env=False,
+                 epsilon_start=0.9,
+                 epsilon_end=0.05,
+                 epsilon_decay=200
+                 ):
+        self.env = env
+        self.state_shape = state_shape
+        self.render_env = render_env
+        self.epsilon_start = epsilon_start
+        self.epsilon_end = epsilon_end
+        self.epsilon_decay = epsilon_decay
+        self.epsilon = epsilon_start
+
+    def _update_espilon(self, steps_done):
+        self.epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
+                       math.exp(-1. * steps_done / self.epsilon_decay)
+
+    def reset(self):
+        return preprocess_breakout(self.env.reset())
+
+    def render(self):
+        if self.render_env:
+            return self.env.render()
+        else:
+            return None
+
+    def choose_action(self, state, policy_net, steps_done):
+        # Update epsilon
+        self._update_espilon(steps_done)
+        sample = random.random()
+
+        if sample < self.epsilon:
+            # Perform a random action selection
+            return random.randrange(self.env.action_space.n)
+        else:
+            # Choose an action accordingly to the policy parameterization
+            # -> choose the action with the highest probability accordingly the policy
+            with torch.no_grad():
+                # Feed the policy network with the state -> obtain the probability for each action
+                action_prob = policy_net(state)
+                # t.max(1) compute the max and return a tuple (max_val, max_index)
+                # We need the action (so the index)
+                return action_prob.max(1)[1].item()
+
+    def act(self, action):
+        state, reward, done, info = self.env.step(action)
+        return preprocess_breakout(state), reward, done, info
+
+    def close(self):
+        return self.env.close()
 
 
 class AtariAgent:

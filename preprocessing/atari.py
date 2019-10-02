@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
 
 def imshow(image):
@@ -8,7 +10,8 @@ def imshow(image):
 
 
 def preprocess_breakout(image):
-    image = image[30: 196, 6: 153]  # Crop the not necessary part of the image
-    image = image[::2, ::2, 0]
+    image = image[32: 192]  # Crop the not necessary part of the image
+    image = image[::2, ::2, ::3]
     image[image != 0] = 1
-    return image
+    image = np.expand_dims(np.rollaxis(image, 2, 0), axis=0)
+    return torch.from_numpy(image).type(torch.float)
