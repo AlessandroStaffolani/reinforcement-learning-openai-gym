@@ -3,10 +3,12 @@ import random
 import numpy as np
 
 import torch
-from torch import nn
+import torch.nn as nn
+import torch.nn.functional as F
 
 from agents.experience_replay import AtariExperience
 from preprocessing.atari import preprocess_breakout
+from agents.memory.experience import ExperienceReplay, Experience
 
 
 class BreakoutAgent:
@@ -17,7 +19,12 @@ class BreakoutAgent:
                  render_env=False,
                  epsilon_start=0.9,
                  epsilon_end=0.05,
-                 epsilon_decay=200
+                 epsilon_decay=200,
+                 gamma=0.999,
+                 batch_size=128,
+                 experience=Experience,
+                 memory_limit=10 ** 4,
+                 device='cpu'
                  ):
         self.env = env
         self.state_shape = state_shape
@@ -26,6 +33,10 @@ class BreakoutAgent:
         self.epsilon_end = epsilon_end
         self.epsilon_decay = epsilon_decay
         self.epsilon = epsilon_start
+        self.gamma = gamma
+        self.batch_size = batch_size
+        self.memory = ExperienceReplay(memory_limit, experience)
+        self.device = device
 
     def _update_espilon(self, steps_done):
         self.epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
@@ -39,6 +50,19 @@ class BreakoutAgent:
             return self.env.render()
         else:
             return None
+
+    def act(self, action):
+        state, reward, done, info = self.env.step(action)
+        return preprocess_breakout(state), reward, done, info
+
+    def close(self):
+        return self.env.close()
+
+    def memory_push(self, *args):
+        self.memory.push(*args)
+
+    def memory_sample(self, as_tuple=False):
+        return self.memory.sample(self.batch_size, as_tuple=as_tuple)
 
     def choose_action(self, state, policy_net, steps_done):
         # Update epsilon
@@ -58,12 +82,46 @@ class BreakoutAgent:
                 # We need the action (so the index)
                 return action_prob.max(1)[1].item()
 
-    def act(self, action):
-        state, reward, done, info = self.env.step(action)
-        return preprocess_breakout(state), reward, done, info
+    def optimize_model(self, policy_net, state_value_net, optimizer):
+        if len(self.memory) < self.batch_size:
+            return
+        batch = self.memory_sample(as_tuple=True)
 
-    def close(self):
-        return self.env.close()
+        # Compute a mask of non-final states and concatenate the batch elements
+        # (a final state would've been the one after which simulation ended)
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
+                                                batch.next_state)), device=self.device, dtype=torch.uint8)
+        non_final_next_states = torch.cat([s for s in batch.next_state
+                                           if s is not None])
+        state_batch = torch.cat(batch.state)
+        action_batch = torch.cat(batch.action)
+        reward_batch = torch.cat(batch.reward)
+
+        # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
+        # columns of actions taken. These are the actions which would've been taken
+        # for each batch state according to policy_net
+        state_action_values = policy_net(state_batch).gather(1, action_batch)
+
+        # Compute V(s_{t+1}) for all next states.
+        # Expected values of actions for non_final_next_states are computed based
+        # on the "older" target_net; selecting their best reward with max(1)[0].
+        # This is merged based on the mask, such that we'll have either the expected
+        # state value or 0 in case the state was final.
+        next_state_values = torch.zeros(self.batch_size, device=self.device)
+        next_state_values[non_final_mask] = state_value_net(non_final_next_states).max(1)[0].detach()
+
+        # Compute the expected Q values
+        expected_state_action_values = (next_state_values * self.gamma) + reward_batch
+
+        # Compute Huber loss
+        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+
+        # Optimize the model
+        optimizer.zero_grad()
+        loss.backward()
+        for param in policy_net.parameters():
+            param.grad.data.clamp_(-1, 1)
+        optimizer.step()
 
 
 class AtariAgent:

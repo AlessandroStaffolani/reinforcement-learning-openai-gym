@@ -28,7 +28,7 @@ LEARNING_STARTS = 50000  # Number of experiences to add to replay memory before 
 MODEL_SAVE_FOLDER = path.join(ROOT_DIR, 'pretrained-models', ENV_NAME)
 MODEL = path.join(ROOT_DIR, 'pretrained-models/Breakout-v0/reward-2.08.pth')
 RENDER_ENV = True
-LOAD_MODEL = True
+LOAD_MODEL = False
 
 USE_CUDA = False
 
