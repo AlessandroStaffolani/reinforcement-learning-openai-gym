@@ -101,9 +101,9 @@ def main():
 
             if best_mean_reward is None or best_mean_reward < mean_reward or len(total_rewards) % 25 == 0:
                 # Save model if it has performed better than all the previous ones
-                save_path = get_path(MODEL_SAVE_FOLDER)
-                torch.save(policy_net.state_dict(), path.join(save_path, 'reward-' + str(mean_reward) + '.pth'))
                 if best_mean_reward is not None:
+                    save_path = get_path(MODEL_SAVE_FOLDER)
+                    torch.save(policy_net.state_dict(), path.join(save_path, 'reward-' + str(mean_reward) + '.pth'))
                     print("New best mean reward {} -> {}, model saved".format(round(best_mean_reward, 3),
                                                                               round(mean_reward, 3)))
                 best_mean_reward = mean_reward

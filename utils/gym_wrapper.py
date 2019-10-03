@@ -133,6 +133,15 @@ class BufferWrapper(gym.ObservationWrapper):
         return self.buffer
 
 
+def make_env_skip(env_name, env_is_wrapped=False):
+    env = gym.make(env_name)
+    env = MaxAndSkipEnv(env)
+    env = FireResetEnv(env)
+    if env_is_wrapped:
+        env = wrap_env(env, env_name)
+    return env
+
+
 def make_env(env_name, env_is_wrapped=False):
     env = gym.make(env_name)
     env = MaxAndSkipEnv(env)

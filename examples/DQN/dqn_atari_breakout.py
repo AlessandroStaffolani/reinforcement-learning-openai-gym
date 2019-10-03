@@ -1,8 +1,6 @@
-import gym
 import numpy as np
-import pandas as pd
 from collections import namedtuple
-from matplotlib import pyplot as plt
+from os import path
 
 import torch
 import torch.optim as optim
@@ -10,12 +8,14 @@ import torch.optim as optim
 from models.dqn import AtariDQN
 from agents.atari import BreakoutAgent
 from agents.memory.experience import Experience
-from utils.gym_wrapper import make_env
+from utils.gym_wrapper import make_env_skip
+from definitions import ROOT_DIR
+from utils.system_utils import get_path
 
 ENV_NAME = 'Breakout-v0'
 
-N_EPISODES = 2
-D = (1, 80, 80)  # Dimension of the frame after preprocessing BCHW
+N_EPISODES = 10
+D = (1, 40, 40)  # Dimension of the frame after preprocessing BCHW
 
 FIG_SIZE = (15, 8)  # Usefull for stats plotting
 USE_CUDA = False
@@ -26,15 +26,17 @@ EPS_END = 0.05
 EPS_DECAY = 200
 
 GAMMA = 0.999
-BATCH_SIZE = 128
+BATCH_SIZE = 32
 MEMORY_LIMIT = 10 ** 4
 TARGET_UPDATE = 10  # Every TARGET_UPDATE episode update the state_value_net weights copying from the policy_net
+
+MODEL_SAVE_FOLDER = path.join(ROOT_DIR, 'pretrained-models', ENV_NAME)
 
 Stats = namedtuple('Stats', ('episode_lengths', 'episode_rewards'))
 
 device = torch.device("cuda" if USE_CUDA else "cpu")
 
-env = gym.make(ENV_NAME)
+env = make_env_skip(ENV_NAME)
 
 policy_net = AtariDQN(D, env.action_space.n).to(device)
 state_value_net = AtariDQN(D, env.action_space.n).to(device)
@@ -63,6 +65,7 @@ agent = BreakoutAgent(env,
 
 episode_length = 0
 total_reward = np.zeros(N_EPISODES)
+best_episode_reward = None
 
 stats = Stats(
     episode_lengths=np.zeros(N_EPISODES),
@@ -116,35 +119,18 @@ for i_episode in range(N_EPISODES):
     if i_episode % TARGET_UPDATE == 0:
         state_value_net.load_state_dict(policy_net.state_dict())
 
-    print('Episode terminated after {} frames'.format(episode_length + 1))
+    print('Episode {} terminated after {} frames'.format(i_episode + 1, episode_length + 1))
     stats.episode_lengths[i_episode] = episode_length
     stats.episode_rewards[i_episode] = total_reward[i_episode]
     episode_length = 0
     last_state = None
 
+    # Check if I have to save the model because has the best reward until now
+    if best_episode_reward is None or best_episode_reward < total_reward[i_episode]:
+        save_path = get_path(MODEL_SAVE_FOLDER)
+        torch.save(policy_net.state_dict(), path.join(save_path, 'reward-' + str(total_reward[i_episode]) + '.pth'))
+        best_episode_reward = total_reward[i_episode]
+        print('New best model founded with reward: {} (model is saved)'.format(best_episode_reward))
+
 agent.close()
 print(stats)
-
-fig1 = plt.figure(figsize=FIG_SIZE)
-plt.plot(stats.episode_lengths)
-plt.xlabel("Episode")
-plt.ylabel("Episode Length")
-plt.title("Episode Length over Time")
-plt.show(fig1)
-
-fig2 = plt.figure(figsize=FIG_SIZE)
-smoothing_window = 1
-goal_value = None
-rewards_smoothed = pd.Series(stats.episode_rewards).rolling(smoothing_window, min_periods=smoothing_window).mean()
-plt.plot(rewards_smoothed)
-plt.xlabel("Episode")
-plt.ylabel("Episode Reward (Smoothed)")
-title = "Episode Reward over Time (Smoothed over window size {})".format(smoothing_window)
-
-if goal_value is not None:
-    plt.axhline(goal_value, color='g', linestyle='dashed')
-    title = "Episode Reward over Time (Smoothed over window size" \
-            " " + str(smoothing_window) + ", goal value " + str(goal_value) + ")"
-
-plt.title(title)
-plt.show(fig2)
