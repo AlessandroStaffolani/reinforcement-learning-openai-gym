@@ -4,6 +4,7 @@ from os import path
 
 import torch
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 
 from models.dqn import AtariDQN
 from agents.atari import BreakoutAgent
@@ -13,6 +14,7 @@ from definitions import ROOT_DIR
 from utils.system_utils import get_path
 
 ENV_NAME = 'Breakout-v0'
+ENV_WRAPPED = True
 
 N_EPISODES = 10
 D = (1, 40, 40)  # Dimension of the frame after preprocessing BCHW
@@ -27,7 +29,7 @@ EPS_DECAY = 200
 
 GAMMA = 0.999
 BATCH_SIZE = 32
-MEMORY_LIMIT = 10 ** 4
+MEMORY_LIMIT = 60000
 TARGET_UPDATE = 10  # Every TARGET_UPDATE episode update the state_value_net weights copying from the policy_net
 
 MODEL_SAVE_FOLDER = path.join(ROOT_DIR, 'pretrained-models', ENV_NAME)
@@ -36,7 +38,10 @@ Stats = namedtuple('Stats', ('episode_lengths', 'episode_rewards'))
 
 device = torch.device("cuda" if USE_CUDA else "cpu")
 
-env = make_env_skip(ENV_NAME)
+print("ReplayMemory will require {}gb of GPU RAM".format(round(MEMORY_LIMIT * 32 * 84 * 84 / 1e+9, 2)))
+writer = SummaryWriter(log_dir=get_path(path.join(ROOT_DIR, 'logs/tensorboard', ENV_NAME)), comment="-" + ENV_NAME)
+
+env = make_env_skip(ENV_NAME, ENV_WRAPPED)
 
 policy_net = AtariDQN(D, env.action_space.n).to(device)
 state_value_net = AtariDQN(D, env.action_space.n).to(device)
@@ -122,6 +127,8 @@ for i_episode in range(N_EPISODES):
     print('Episode {} terminated after {} frames'.format(i_episode + 1, episode_length + 1))
     stats.episode_lengths[i_episode] = episode_length
     stats.episode_rewards[i_episode] = total_reward[i_episode]
+    writer.add_scalar("episode lengths", episode_length, i_episode)
+    writer.add_scalar("episode rewards", total_reward[i_episode], i_episode)
     episode_length = 0
     last_state = None
 
@@ -133,4 +140,5 @@ for i_episode in range(N_EPISODES):
         print('New best model founded with reward: {} (model is saved)'.format(best_episode_reward))
 
 agent.close()
+writer.close()
 print(stats)
