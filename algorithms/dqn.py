@@ -34,7 +34,7 @@ class DQN(nn.Module):
     def forward(self, x):
         """
         Called during optimization to determine next action
-        :param x: can be either one element or a bath
+        :param x: can be either one element or a batch
         :return: Returns tensor
         """
         x = F.relu(self.bn1(self.conv1(x)))
