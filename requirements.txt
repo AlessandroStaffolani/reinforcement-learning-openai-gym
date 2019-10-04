@@ -1,3 +1,10 @@
 gym
+atari_py
+Pillow
+opencv-python
 numpy
 matplotlib
+torch
+torchvision
+tensorflow
+tensorboard

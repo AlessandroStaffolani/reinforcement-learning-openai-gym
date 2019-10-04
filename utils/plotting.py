@@ -3,10 +3,12 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from collections import namedtuple
 
+import torch
+
 EpisodeStats = namedtuple("Stats", ["episode_lengths", "episode_rewards", "episode_epsilon", "episode_alpha"])
 
 
-def plot_episode_stats(stats, n_episodes, smoothing_window=10, noshow=False, goal_value=None, fig_size=(15, 8), ada_divisor=25):
+def plot_episode_stats(stats, n_episodes, smoothing_window=10, noshow=False, goal_value=None, fig_size=(15, 8), ada_divisor=25, show_params=False):
     # Plot the episode length over time
     fig1 = plt.figure(figsize=fig_size)
     plt.plot(stats.episode_lengths)
@@ -48,26 +50,48 @@ def plot_episode_stats(stats, n_episodes, smoothing_window=10, noshow=False, goa
     else:
         plt.show(fig3)
 
-    # Plot Epsilon over episode
-    fig4 = plt.figure(figsize=(15, 8))
-    plt.plot(np.arange(n_episodes), stats.episode_epsilon)
-    plt.xlabel("Episode t")
-    plt.ylabel("Epsilon")
-    plt.title("Epsilon over episode using ada_divisor of {}".format(ada_divisor))
-    if noshow:
-        plt.close(fig4)
-    else:
-        plt.show(fig4)
+    if show_params:
+        # Plot Epsilon over episode
+        fig4 = plt.figure(figsize=(15, 8))
+        plt.plot(np.arange(n_episodes), stats.episode_epsilon)
+        plt.xlabel("Episode t")
+        plt.ylabel("Epsilon")
+        plt.title("Epsilon over episode using ada_divisor of {}".format(ada_divisor))
+        if noshow:
+            plt.close(fig4)
+        else:
+            plt.show(fig4)
 
-    # Plot Epsilon over episode
-    fig5 = plt.figure(figsize=(15, 8))
-    plt.plot(np.arange(n_episodes), stats.episode_alpha)
-    plt.xlabel("Episode t")
-    plt.ylabel("Alpha")
-    plt.title("Alpha over episode using ada_divisor of {}".format(ada_divisor))
-    if noshow:
-        plt.close(fig5)
-    else:
-        plt.show(fig5)
+        # Plot Epsilon over episode
+        fig5 = plt.figure(figsize=(15, 8))
+        plt.plot(np.arange(n_episodes), stats.episode_alpha)
+        plt.xlabel("Episode t")
+        plt.ylabel("Alpha")
+        plt.title("Alpha over episode using ada_divisor of {}".format(ada_divisor))
+        if noshow:
+            plt.close(fig5)
+        else:
+            plt.show(fig5)
 
-    return fig1, fig2, fig3, fig4, fig5
+        return fig1, fig2, fig3, fig4, fig5
+
+
+def plot_durations(episode_durations, is_ipython):
+    plt.figure(2)
+    plt.clf()
+    durations_t = torch.tensor(episode_durations, dtype=torch.float)
+    plt.title('Training...')
+    plt.xlabel('Episode')
+    plt.ylabel('Duration')
+    plt.plot(durations_t.numpy())
+    # Take 100 episode averages and plot them too
+    if len(durations_t) >= 100:
+        means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
+        means = torch.cat((torch.zeros(99), means))
+        plt.plot(means.numpy())
+
+    plt.pause(0.001)  # pause a bit so that plots are updated
+    if is_ipython:
+        from IPython import display
+        display.clear_output(wait=True)
+        display.display(plt.gcf())

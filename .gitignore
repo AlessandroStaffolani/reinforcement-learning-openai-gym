@@ -141,3 +141,4 @@ logs/*
 # test file
 test.ipynb
 /test.py
+/pretrained-models/
