@@ -5,11 +5,18 @@ This repository is a set of examples and experimentations done using reinforceme
 ### Algorithms implemented
 
 - Q-Learning: off-policy TD control
+- DQN (Deep Q-learning Network)
+
+### Model used for the DQN
+
+- CNN (Convolutional Neural Network) implemented using PyTorch
 
 ### Environments Used
 
 - Taxy-v2
 - CartPole-v0
+- Breakout-v0
+- Pong-v0
 
 ### Resources
 
