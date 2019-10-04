@@ -12,8 +12,15 @@ def imshow(image):
 
 def preprocess_breakout(image):
     image = image[32: 192]  # Crop the not necessary part of the image
-    image = cv2.resize(image, (80, 80))
+    image = cv2.resize(image, (80, 80), interpolation=cv2.INTER_CUBIC)
     image = image[::2, ::2, ::3]
     image[image != 0] = 1
+    image = np.expand_dims(np.rollaxis(image, 2, 0), axis=0)
+    return torch.from_numpy(image).type(torch.float)
+
+
+def preprocess_general(image):
+    image = cv2.resize(image, (80, 80), interpolation=cv2.INTER_CUBIC)
+    image = image[::2, ::2, ::3]
     image = np.expand_dims(np.rollaxis(image, 2, 0), axis=0)
     return torch.from_numpy(image).type(torch.float)
